@@ -77,7 +77,8 @@ module GraphQL
           out << "  subscription: #{node.subscription}\n" if node.subscription
           out << "}"
         when Nodes::ScalarTypeDefinition
-          "scalar #{node.name}"
+          out = "scalar #{node.name}"
+          out << generate_directives(node.directives)
         when Nodes::ObjectTypeDefinition
           out = "type #{node.name}"
           out << " implements " << node.interfaces.join(", ") unless node.interfaces.empty?
@@ -92,6 +93,7 @@ module GraphQL
             out << "(" << node.arguments.map{ |arg| generate(arg) }.join(", ") << ")"
           end
           out << ": #{generate(node.type)}"
+          out << generate_directives(node.directives)
         when Nodes::InterfaceTypeDefinition
           out = "interface #{node.name}"
           out << generate_field_definitions(node.fields)
@@ -100,9 +102,13 @@ module GraphQL
         when Nodes::EnumTypeDefinition
           out = "enum #{node.name} {\n"
           node.values.each do |value|
-            out << "  #{value}\n"
+            out << generate(value)
           end
           out << "}"
+        when Nodes::EnumValueDefinition
+          out = "  #{node.name}"
+          out << generate_directives(node.directives)
+          out << "\n"
         when Nodes::InputObjectTypeDefinition
           out = "input #{node.name} {\n"
           node.fields.each do |field|

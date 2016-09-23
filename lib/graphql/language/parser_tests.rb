@@ -279,6 +279,7 @@ module GraphQL
               it "parses the test schema" do
                 schema = DummySchema
                 schema_string = GraphQL::Schema::Printer.print_schema(schema)
+
                 document = subject.parse(schema_string)
 
                 assert_equal schema_string, document.to_query_string
@@ -371,7 +372,13 @@ module GraphQL
                 type = document.definitions.first
                 assert_equal GraphQL::Language::Nodes::EnumTypeDefinition, type.class
                 assert_equal 'DogCommand', type.name
-                assert_equal ['SIT', 'DOWN', 'HEEL'], type.values
+                assert_equal 3, type.values.length
+                assert_equal 'SIT', type.values[0].name
+                assert_equal [], type.values[0].directives
+                assert_equal 'DOWN', type.values[1].name
+                assert_equal [], type.values[1].directives
+                assert_equal 'HEEL', type.values[2].name
+                assert_equal [], type.values[2].directives
               end
 
               it "parses input object types" do

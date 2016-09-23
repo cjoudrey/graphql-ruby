@@ -16,9 +16,11 @@ module GraphQL
       MUTATION =            :MUTATION,
       SUBSCRIPTION =        :SUBSCRIPTION,
       FIELD =               :FIELD,
+      FIELD_DEFINITION =    :FIELD_DEFINITION,
       FRAGMENT_DEFINITION = :FRAGMENT_DEFINITION,
       FRAGMENT_SPREAD =     :FRAGMENT_SPREAD,
       INLINE_FRAGMENT =     :INLINE_FRAGMENT,
+      ENUM_VALUE =          :ENUM_VALUE,
     ]
 
     def initialize
@@ -26,6 +28,7 @@ module GraphQL
     end
 
     def include?(arguments)
+      return true if include_proc.nil?
       include_proc.call(arguments)
     end
 
@@ -49,3 +52,4 @@ end
 
 require "graphql/directive/include_directive"
 require "graphql/directive/skip_directive"
+require "graphql/directive/deprecated_directive"
