@@ -9,6 +9,8 @@ require "graphql/schema/type_expression"
 require "graphql/schema/type_map"
 require "graphql/schema/unique_within_type"
 require "graphql/schema/validation"
+require "graphql/schema/build_from_ast"
+require "graphql/schema/schema_comparator"
 
 module GraphQL
   # A GraphQL schema which may be queried with {GraphQL::Query}.
@@ -50,6 +52,7 @@ module GraphQL
       :max_depth, :max_complexity,
       :orphan_types, :resolve_type,
       :object_from_id, :id_from_object,
+      directives: -> (schema, directives) { schema.directives = directives.reduce({}) { |m, d| m[d.name] = d; m  }},
       query_analyzer: -> (schema, analyzer) { schema.query_analyzers << analyzer },
       middleware: -> (schema, middleware) { schema.middleware << middleware },
       rescue_from: -> (schema, err_class, &block) { schema.rescue_from(err_class, &block)}
@@ -58,13 +61,13 @@ module GraphQL
       :query, :mutation, :subscription,
       :query_execution_strategy, :mutation_execution_strategy, :subscription_execution_strategy,
       :max_depth, :max_complexity,
-      :orphan_types,
+      :orphan_types, :directives,
       :query_analyzers, :middleware
 
     DIRECTIVES = [GraphQL::Directive::IncludeDirective, GraphQL::Directive::SkipDirective, GraphQL::Directive::DeprecatedDirective]
     DYNAMIC_FIELDS = ["__type", "__typename", "__schema"]
 
-    attr_reader :directives, :static_validator, :object_from_id_proc, :id_from_object_proc, :resolve_type_proc
+    attr_reader :static_validator, :object_from_id_proc, :id_from_object_proc, :resolve_type_proc
 
     # @!attribute [r] middleware
     #   @return [Array<#call>] Middlewares suitable for MiddlewareChain, applied to fields during execution
