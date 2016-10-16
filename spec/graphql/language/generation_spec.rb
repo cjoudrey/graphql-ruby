@@ -109,7 +109,9 @@ describe GraphQL::Language::Generation do
             mutation: MutationType
           }
 
+          # Type description
           type Foo implements Bar {
+            # Field description
             one: Type
             two(argument: InputType!): Type
             three(argument: InputType, other: String): Int
@@ -122,6 +124,7 @@ describe GraphQL::Language::Generation do
             annotatedField(arg: Type = "default" @onArg): Type @onField
           }
 
+          # Interface description
           interface Bar {
             one: Type
             four(argument: String = "string"): String
@@ -133,13 +136,17 @@ describe GraphQL::Language::Generation do
 
           union Feed = Story | Article | Advert
 
+          # Union description
           union AnnotatedUnion @onUnion = A | B
 
+          # Scalar description
           scalar CustomScalar
 
           scalar AnnotatedScalar @onScalar
 
+          # Enum description
           enum Site {
+            # Enum value description
             DESKTOP
             MOBILE
           }
@@ -149,6 +156,7 @@ describe GraphQL::Language::Generation do
             OTHER_VALUE
           }
 
+          # Input description
           input InputType {
             key: String!
             answer: Int = 42
@@ -158,6 +166,7 @@ describe GraphQL::Language::Generation do
             annotatedField: Type @onField
           }
 
+          # Directive description
           directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
           directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
