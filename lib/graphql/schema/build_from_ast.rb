@@ -31,7 +31,7 @@ module GraphQL
           when GraphQL::Language::Nodes::DirectiveDefinition
             directives[definition.name] = build_directive(definition, type_resolver)
           else
-            raise "Type kind \"#{type.class}\" not supported."
+            raise "Type kind \"#{definition.class}\" not supported."
           end
         end
 
