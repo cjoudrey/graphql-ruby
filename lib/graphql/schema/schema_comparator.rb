@@ -74,6 +74,8 @@ module GraphQL
               changes.push(*find_changes_in_input_object_type(old_type, new_type))
             when ObjectType
               changes.push(*find_changes_in_object_type(old_type, new_type))
+            when InterfaceType
+              changes.push(*find_changes_in_interface_type(old_type, new_type))
             end
           end
 
@@ -232,7 +234,7 @@ module GraphQL
         def find_changes_in_object_type(old_type, new_type)
           interface_changes = find_changes_in_object_type_interfaces(old_type, new_type)
 
-          field_changes = []
+          field_changes = find_changes_in_object_type_fields(old_type, new_type)
 
           interface_changes + field_changes
         end
@@ -249,7 +251,20 @@ module GraphQL
         end
 
         def find_changes_in_object_type_fields(old_type, new_type)
-          [] # TODO
+          old_fields = old_type.fields.values.map(&:name)
+          new_fields = new_type.fields.values.map(&:name)
+
+          removed = (old_fields - new_fields).map{ |field| field_removed(field, new_type) }
+
+          added = (new_fields - old_fields).map{ |field| field_added(field, new_type) }
+
+          changed = [] # TODO
+
+          removed + added + changed
+        end
+
+        def find_changes_in_interface_type(old_type, new_type)
+          find_changes_in_object_type_fields(old_type, new_type)
         end
 
         def type_removed(type)
@@ -433,6 +448,22 @@ module GraphQL
             type: OBJECT_TYPE_INTERFACE_REMOVED,
             description: "`#{type.name}` object type no longer implements `#{interface}` interface",
             breaking_change: true,
+          }
+        end
+
+        def field_removed(field, type)
+          {
+            type: FIELD_REMOVED,
+            description: "Field `#{field}` was removed from `#{type.name}` type",
+            breaking_change: true,
+          }
+        end
+
+        def field_added(field, type)
+          {
+            type: FIELD_ADDED,
+            description: "Field `#{field}` was added to `#{type.name}` type",
+            breaking_change: false,
           }
         end
 

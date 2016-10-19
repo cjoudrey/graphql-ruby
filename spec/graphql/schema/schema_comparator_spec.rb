@@ -6,6 +6,14 @@ describe GraphQL::Schema::SchemaComparator do
       type Query {
         field1: String
       }
+
+      type LoadBuiltInScalars {
+        int: Int
+        float: Float
+        string: String
+        boolean: Boolean
+        id: ID
+      }
     "
 
     document = GraphQL.parse(idl)
@@ -415,7 +423,7 @@ describe GraphQL::Schema::SchemaComparator do
 
     changes = GraphQL::Schema::SchemaComparator.compare(schema(schema1), schema(schema2))
 
-    #assert_equal 10, changes.length
+    assert_equal 10, changes.length
 
     assert_includes changes, {
       type: GraphQL::Schema::SchemaComparator::TYPE_REMOVED,
@@ -475,6 +483,85 @@ describe GraphQL::Schema::SchemaComparator do
       type: GraphQL::Schema::SchemaComparator::FIELD_REMOVED,
       description: "Field `name` was removed from `I1` type",
       breaking_change: true,
+    }
+  end
+
+  it "detects changes in object type arguments" do
+    schema1 = <<-SCHEMA
+      type Filter {
+        foo(
+          a: String!
+          b: String
+          b1: String
+          c: [String]
+        ): String!
+      }
+    SCHEMA
+
+    schema2 = <<-SCHEMA
+      type Filter {
+        foo(
+          # descr
+          a: String = "foo"
+          b: [String]
+          b1: String!
+          c: [String]!
+          d: Int
+          e: Int!
+        ): String!
+      }
+    SCHEMA
+
+    changes = GraphQL::Schema::SchemaComparator.compare(schema(schema1), schema(schema2))
+
+    #assert_equal 8, changes.length
+
+    assert_includes changes, {
+      type: GraphQL::Schema::SchemaComparator::OBJECT_TYPE_ARGUMENT_TYPE_CHANGED,
+      description: "`Filter.foo(b)` type changed from `String` to `[String]`",
+      breaking_change: true,
+    }
+
+    assert_includes changes, {
+      type: GraphQL::Schema::SchemaComparator::OBJECT_TYPE_ARGUMENT_ADDED,
+      description: "",
+      breaking_change: false,
+    }
+
+    assert_includes changes, {
+      type: GraphQL::Schema::SchemaComparator::OBJECT_TYPE_ARGUMENT_TYPE_CHANGED,
+      description: "`Filter.foo(b1)` type changed from `String` to `String!`",
+      breaking_change: true,
+    }
+
+    assert_includes changes, {
+      type: GraphQL::Schema::SchemaComparator::OBJECT_TYPE_ARGUMENT_TYPE_CHANGED,
+      description: "`Filter.foo(a)` type changed from `String!` to `String`",
+      breaking_change: false,
+    }
+
+    assert_includes changes, {
+      type: GraphQL::Schema::SchemaComparator::OBJECT_TYPE_ARGUMENT_TYPE_CHANGED,
+      description: "`Filter.foo(c)` type changed from `[String]` to `[String]!`",
+      breaking_change: true,
+    }
+
+    assert_includes changes, {
+      type: GraphQL::Schema::SchemaComparator::OBJECT_TYPE_ARGUMENT_ADDED,
+      description: "Argument `e` was added to `Filter.foo` field",
+      breaking_change: true,
+    }
+
+    assert_includes changes, {
+      type: GraphQL::Schema::SchemaComparator::OBJECT_TYPE_ARGUMENT_DEFAULT_CHANGED,
+      description: "`Filter.foo(a)` default value changed from none to `\"foo\"`",
+      breaking_change: false,
+    }
+
+    assert_includes changes, {
+      type: GraphQL::Schema::SchemaComparator::OBJECT_TYPE_ARGUMENT_DESCRIPTION_CHANGED,
+      description: "`Filter.foo(a)` description is changed",
+      breaking_change: false,
     }
   end
 end
