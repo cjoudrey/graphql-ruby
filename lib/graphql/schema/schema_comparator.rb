@@ -20,6 +20,8 @@ module GraphQL
         DIRECTIVE_ARGUMENT_DESCRIPTION_CHANGED = :DIRECTIVE_ARGUMENT_DESCRIPTION_CHANGED,
         DIRECTIVE_ARGUMENT_REMOVED = :DIRECTIVE_ARGUMENT_REMOVED,
         DIRECTIVE_ARGUMENT_ADDED = :DIRECTIVE_ARGUMENT_ADDED,
+        DIRECTIVE_LOCATION_ADDED = :DIRECTIVE_LOCATION_ADDED,
+        DIRECTIVE_LOCATION_REMOVED = :DIRECTIVE_LOCATION_REMOVED,
       ]
 
       def compare(old_schema, new_schema)
@@ -99,23 +101,33 @@ module GraphQL
         end
 
         def find_changes_in_directive(old_directive, new_directive)
-#      description = SchemaChange.DirectiveArgumentDescriptionChanged(newDir, _, _, _),
-#      default = SchemaChange.DirectiveArgumentDefaultChanged(newDir, _, _, _),
-#      typeChange = SchemaChange.DirectiveArgumentTypeChanged(newDir, _, _, _, _))
-          location_changes = [] #    val locationChanges = findInDirectiveLocations(oldDir, newDir)
+          location_changes = find_changes_in_directive_locations(old_directive, new_directive)
 
-          field_changes = find_changes_in_args(
+          field_changes = find_changes_in_arguments(
             old_directive.arguments,
             new_directive.arguments,
             removed_method: lambda { |argument| directive_argument_removed(argument, new_directive) },
             added_method: lambda { |argument, breaking_change| directive_argument_added(argument, breaking_change, new_directive) },
             description_method: lambda { |argument| directive_argument_description_changed(argument, new_directive) },
+            default_method: lambda { },
+            type_change_method: lambda { },
           )
 
           location_changes + field_changes
         end
 
-        def find_changes_in_args(old_arguments, new_arguments, removed_method:, added_method:, description_method:)
+        def find_changes_in_directive_locations(old_directive, new_directive)
+          old_locations = old_directive.locations
+          new_locations = new_directive.locations
+
+          removed = (old_locations - new_locations).map{ |location| directive_location_removed(location, new_directive) }
+
+          added = (new_locations - old_locations).map{ |location| directive_location_added(location, new_directive) }
+
+          removed + added
+        end
+
+        def find_changes_in_arguments(old_arguments, new_arguments, removed_method:, added_method:, description_method:, default_method:, type_change_method:)
           old = old_arguments.values.map(&:name)
           new = new_arguments.values.map(&:name)
 
@@ -133,11 +145,16 @@ module GraphQL
             changes = []
 
             changes << description_method.call(argument) if old_argument.description != new_argument.description
+            changes.push(*find_changes_in_argument(old_argument, new_argument, default_method: default_method, type_change_method: type_change_method))
 
             changes
           }.flatten
 
           removed + added + changed
+        end
+
+        def find_changes_in_argument(old_argument, new_argument, default_method:, type_change_method:)
+          []
         end
 
         def find_changes_in_enum_types(old_type, new_type)
@@ -296,10 +313,30 @@ module GraphQL
 
         def directive_argument_description_changed(argument, directive)
           {
-            type: DIRECTIVE_ARGUMENT_ADDED,
+            type: DIRECTIVE_ARGUMENT_DESCRIPTION_CHANGED,
             description: "`#{directive.name}(#{argument})` description is changed",
             breaking_change: false,
           }
+        end
+
+        def directive_location_added(location, directive)
+          {
+            type: DIRECTIVE_LOCATION_ADDED,
+            description: "`#{directive_location(location)}` directive location added to `#{directive.name}` directive",
+            breaking_change: false,
+          }
+        end
+
+        def directive_location_removed(location, directive)
+          {
+            type: DIRECTIVE_LOCATION_REMOVED,
+            description: "`#{directive_location(location)}` directive location removed from `#{directive.name}` directive",
+            breaking_change: true,
+          }
+        end
+
+        def directive_location(location)
+          location.to_s.split('_').collect(&:capitalize).join
         end
 
         def kind(type)
