@@ -22,6 +22,11 @@ module GraphQL
         DIRECTIVE_ARGUMENT_ADDED = :DIRECTIVE_ARGUMENT_ADDED,
         DIRECTIVE_LOCATION_ADDED = :DIRECTIVE_LOCATION_ADDED,
         DIRECTIVE_LOCATION_REMOVED = :DIRECTIVE_LOCATION_REMOVED,
+        INPUT_FIELD_REMOVED = :INPUT_FIELD_REMOVED,
+        INPUT_FIELD_ADDED = :INPUT_FIELD_ADDED,
+        INPUT_FIELD_DESCRIPTION_CHANGED = :INPUT_FIELD_DESCRIPTION_CHANGED,
+        OBJECT_TYPE_INTERFACE_ADDED = :OBJECT_TYPE_INTERFACE_ADDED,
+        OBJECT_TYPE_INTERFACE_REMOVED = :OBJECT_TYPE_INTERFACE_REMOVED,
       ]
 
       def compare(old_schema, new_schema)
@@ -63,6 +68,10 @@ module GraphQL
               changes.push(*find_changes_in_enum_types(old_type, new_type))
             when UnionType
               changes.push(*find_changes_in_union_type(old_type, new_type))
+            when InputObjectType
+              changes.push(*find_changes_in_input_object_type(old_type, new_type))
+            when ObjectType
+              changes.push(*find_changes_in_object_type(old_type, new_type))
             end
           end
 
@@ -109,8 +118,8 @@ module GraphQL
             removed_method: lambda { |argument| directive_argument_removed(argument, new_directive) },
             added_method: lambda { |argument, breaking_change| directive_argument_added(argument, breaking_change, new_directive) },
             description_method: lambda { |argument| directive_argument_description_changed(argument, new_directive) },
-            default_method: lambda { },
-            type_change_method: lambda { },
+            default_method: lambda { }, #TODO
+            type_change_method: lambda {}, #TODO
           )
 
           location_changes + field_changes
@@ -154,7 +163,7 @@ module GraphQL
         end
 
         def find_changes_in_argument(old_argument, new_argument, default_method:, type_change_method:)
-          []
+          [] # TODO
         end
 
         def find_changes_in_enum_types(old_type, new_type)
@@ -189,6 +198,49 @@ module GraphQL
           added = (new_types - old_types).map{ |type| union_member_added(type, new_type) }
 
           removed + added
+        end
+
+        def find_changes_in_input_object_type(old_type, new_type)
+          old_fields = old_type.arguments.values.map(&:name)
+          new_fields = new_type.arguments.values.map(&:name)
+
+          removed = (old_fields - new_fields).map{ |field| input_field_removed(field, new_type) }
+
+          added = (new_fields - old_fields).map{ |field|
+            required_field = new_type.arguments[field].type.class == NonNullType
+            input_field_added(field, required_field, new_type)
+          }
+
+          changed = (old_fields & new_fields).map{ |field|
+            old_field = old_type.arguments[field]
+            new_field = new_type.arguments[field]
+
+            changes = []
+
+            changes << input_field_description_changed(field, new_type) if old_field.description != new_field.description
+
+            # TODO -  findInInputFields(oldType, newType, oldField, newField)
+
+            changes
+          }.flatten
+
+          removed + added + changed
+        end
+
+        def find_changes_in_object_type(old_type, new_type)
+          interface_changes = []
+
+          field_changes = []
+
+          interface_changes + field_changes
+        end
+
+        def find_changes_in_object_type_interfaces(old_type, new_type)
+          [] # TODO
+        end
+
+        def find_changes_in_object_type_fields(old_type, new_type)
+          [] # TODO
         end
 
         def type_removed(type)
@@ -332,6 +384,30 @@ module GraphQL
             type: DIRECTIVE_LOCATION_REMOVED,
             description: "`#{directive_location(location)}` directive location removed from `#{directive.name}` directive",
             breaking_change: true,
+          }
+        end
+
+        def input_field_removed(input_field, type)
+          {
+            type: INPUT_FIELD_REMOVED,
+            description: "Input field `#{input_field}` was removed from `#{type.name}` type",
+            breaking_change: true,
+          }
+        end
+
+        def input_field_added(input_field, breaking_change, type)
+          {
+            type: INPUT_FIELD_ADDED,
+            description: "Input field `#{input_field}` was added to `#{type.name}` type",
+            breaking_change: breaking_change,
+          }
+        end
+
+        def input_field_description_changed(input_field, type)
+          {
+            type: INPUT_FIELD_DESCRIPTION_CHANGED,
+            description: "`#{type.name}.#{input_field}` description is changed",
+            breaking_change: false,
           }
         end
 
