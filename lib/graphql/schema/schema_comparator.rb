@@ -27,6 +27,8 @@ module GraphQL
         INPUT_FIELD_DESCRIPTION_CHANGED = :INPUT_FIELD_DESCRIPTION_CHANGED,
         OBJECT_TYPE_INTERFACE_ADDED = :OBJECT_TYPE_INTERFACE_ADDED,
         OBJECT_TYPE_INTERFACE_REMOVED = :OBJECT_TYPE_INTERFACE_REMOVED,
+        FIELD_REMOVED = :FIELD_REMOVED,
+        FIELD_ADDED = :FIELD_ADDED,
       ]
 
       def compare(old_schema, new_schema)
@@ -228,7 +230,7 @@ module GraphQL
         end
 
         def find_changes_in_object_type(old_type, new_type)
-          interface_changes = []
+          interface_changes = find_changes_in_object_type_interfaces(old_type, new_type)
 
           field_changes = []
 
@@ -236,7 +238,14 @@ module GraphQL
         end
 
         def find_changes_in_object_type_interfaces(old_type, new_type)
-          [] # TODO
+          old_interfaces = old_type.interfaces.map(&:name)
+          new_interfaces = new_type.interfaces.map(&:name)
+
+          removed = (old_interfaces - new_interfaces).map{ |interface| object_type_interface_removed(interface, new_type) }
+
+          added = (new_interfaces - old_interfaces).map{ |interface| object_type_interface_added(interface, new_type) }
+
+          removed + added
         end
 
         def find_changes_in_object_type_fields(old_type, new_type)
@@ -407,6 +416,22 @@ module GraphQL
           {
             type: INPUT_FIELD_DESCRIPTION_CHANGED,
             description: "`#{type.name}.#{input_field}` description is changed",
+            breaking_change: false,
+          }
+        end
+
+        def object_type_interface_added(interface, type)
+          {
+            type: OBJECT_TYPE_INTERFACE_ADDED,
+            description: "`#{type.name}` object type now implements `#{interface}` interface",
+            breaking_change: false,
+          }
+        end
+
+        def object_type_interface_removed(interface, type)
+          {
+            type: OBJECT_TYPE_INTERFACE_REMOVED,
+            description: "`#{type.name}` object type no longer implements `#{interface}` interface",
             breaking_change: false,
           }
         end
