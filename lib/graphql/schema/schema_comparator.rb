@@ -432,7 +432,7 @@ module GraphQL
           {
             type: OBJECT_TYPE_INTERFACE_REMOVED,
             description: "`#{type.name}` object type no longer implements `#{interface}` interface",
-            breaking_change: false,
+            breaking_change: true,
           }
         end
 

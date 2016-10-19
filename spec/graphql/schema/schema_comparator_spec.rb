@@ -432,7 +432,7 @@ describe GraphQL::Schema::SchemaComparator do
     assert_includes changes, {
       type: GraphQL::Schema::SchemaComparator::OBJECT_TYPE_INTERFACE_REMOVED,
       description: "`Filter` object type no longer implements `I2` interface",
-      breaking_change: false,
+      breaking_change: true,
     }
 
     assert_includes changes, {
