@@ -27,8 +27,12 @@ module GraphQL
         INPUT_FIELD_DESCRIPTION_CHANGED = :INPUT_FIELD_DESCRIPTION_CHANGED,
         OBJECT_TYPE_INTERFACE_ADDED = :OBJECT_TYPE_INTERFACE_ADDED,
         OBJECT_TYPE_INTERFACE_REMOVED = :OBJECT_TYPE_INTERFACE_REMOVED,
+        OBJECT_TYPE_ARGUMENT_ADDED = :OBJECT_TYPE_ARGUMENT_ADDED,
+        OBJECT_TYPE_ARGUMENT_TYPE_CHANGED = :OBJECT_TYPE_ARGUMENT_TYPE_CHANGED,
         FIELD_REMOVED = :FIELD_REMOVED,
         FIELD_ADDED = :FIELD_ADDED,
+        FIELD_DESCRIPTION_CHANGED = :FIELD_DESCRIPTION_CHANGED,
+        FIELD_DEPRECATION_CHANGED = :FIELD_DEPRECATION_CHANGED,
       ]
 
       def compare(old_schema, new_schema)
@@ -167,7 +171,17 @@ module GraphQL
         end
 
         def find_changes_in_argument(old_argument, new_argument, default_method:, type_change_method:)
-          [] # TODO
+          old_default_value = old_argument.default_value
+          new_default_value = new_argument.default_value
+
+          old_type = old_argument.type.to_s
+          new_type = new_argument.type.to_s
+
+          binding.pry
+
+          changes = []
+
+          changes
         end
 
         def find_changes_in_enum_types(old_type, new_type)
@@ -258,9 +272,40 @@ module GraphQL
 
           added = (new_fields - old_fields).map{ |field| field_added(field, new_type) }
 
-          changed = [] # TODO
+          changed = (old_fields & new_fields).map { |field|
+            old_field = old_type.fields[field]
+            new_field = new_type.fields[field]
+
+            changes = find_changes_in_fields(old_type, new_type, old_field, new_field)
+
+            # TODO Description changed
+            # TODO Deprecation changed
+            # TODO Find in fields
+
+            []
+          }.flatten
 
           removed + added + changed
+        end
+
+        def find_changes_in_fields(old_type, new_type, old_field, new_field)
+          old_field_type = old_field.type.to_s
+          new_field_type = new_field.type.to_s
+
+          type_change = []
+          #changes << field_type_changed(
+
+          argument_changes = find_changes_in_arguments(
+            old_field.arguments,
+            new_field.arguments,
+            removed_method: lambda { |argument| nil }, # TODO
+            added_method: lambda { |argument, breaking_change| nil }, # TODO
+            description_method: lambda { |argument| nil }, # TODO
+            default_method: lambda { }, # TODO
+            type_change_method: lambda { object_type_argument_type_changed()  },
+          )
+
+          type_change + argument_changes
         end
 
         def find_changes_in_interface_type(old_type, new_type)
@@ -447,6 +492,14 @@ module GraphQL
           {
             type: OBJECT_TYPE_INTERFACE_REMOVED,
             description: "`#{type.name}` object type no longer implements `#{interface}` interface",
+            breaking_change: true,
+          }
+        end
+
+        def object_type_argument_type_changed(type, field, argument, old_type, new_type)
+          {
+            type: OBJECT_TYPE_ARGUMENT_TYPE_CHANGED,
+            description: "`#{type.name}.#{field.name}(#{argument.name}) type changed from `#{old_type}` to `#{new_type}`",
             breaking_change: true,
           }
         end
