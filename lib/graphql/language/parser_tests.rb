@@ -202,6 +202,9 @@ module GraphQL
                       object: {a: [1,2,3], b: {c: "4"}}
                       unicode_bom: "\xef\xbb\xbfquery"
                       keywordEnum: on
+                      nullValue: null
+                      nullValueInList: {a: null, b: "b"}
+                      nullValueInArray: ["a", null, "b"]
                     )
                   }
                 |}
@@ -249,6 +252,25 @@ module GraphQL
 
                 it "parses enum 'on''" do
                   assert_equal "on", inputs[8].value.name
+                end
+
+                it "parses null value" do
+                  assert_instance_of GraphQL::Language::Nodes::NullValue, inputs[9].value
+                end
+
+                it "parses null value in list" do
+                  args = inputs[10].value.arguments
+
+                  assert_instance_of GraphQL::Language::Nodes::NullValue, args.find{ |arg| arg.name == 'a' }.value
+                  assert_equal 'b', args.find{ |arg| arg.name == 'b' }.value
+                end
+
+                it "parses null value in array" do
+                  values = inputs[11].value
+
+                  assert_equal 'a', values[0]
+                  assert_instance_of GraphQL::Language::Nodes::NullValue, values[1]
+                  assert_equal 'b', values[2]
                 end
               end
             end
@@ -318,6 +340,7 @@ module GraphQL
                 interface Vehicle {
                   # Amount of wheels
                   wheels: Int!
+                  brand(argument: String = null): String!
                 }
 
                 # Comment at the end of schema
@@ -356,6 +379,11 @@ module GraphQL
                 assert_equal GraphQL::Language::Nodes::InterfaceTypeDefinition, interface_type_definition.class
                 assert_equal 'Comment for interface definitions', interface_type_definition.description
                 assert_equal 'Amount of wheels', interface_type_definition.fields[0].description
+
+                brand_field = interface_type_definition.fields[1]
+                assert_equal 1, brand_field.arguments.length
+                assert_equal 'argument', brand_field.arguments[0].name
+                assert_instance_of GraphQL::Language::Nodes::NullValue, brand_field.arguments[0].default_value
               end
             end
 
@@ -769,16 +797,7 @@ module GraphQL
 
               assert_includes(e.message, "Parse error on \"}\"")
             end
-
-            it "rejects null value" do
-              e = assert_raises(GraphQL::ParseError) do
-                GraphQL.parse("{ fieldWithNullableStringInput(input: null) }")
-              end
-
-              assert_includes(e.message, "Parse error on \"null\"")
-            end
           end
-
 
           describe "whitespace" do
             describe "whitespace-only queries" do
