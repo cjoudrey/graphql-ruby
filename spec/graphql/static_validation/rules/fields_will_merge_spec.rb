@@ -220,6 +220,25 @@ describe GraphQL::StaticValidation::FieldsWillMerge do
     end
   end
 
+#  describe "same aliases allowed on non-overlapping fields" do
+#    let(:query_string) {%|
+#      {
+#        pet {
+#          ... on Dog {
+#            name
+#          }
+#          ... on Cat {
+#            name: nickname
+#          }
+#        }
+#      }
+#    |}
+#
+#    it "passes rule" do
+#      assert_equal [], errors
+#    end
+#  end
+
   describe "alias masking direct field access" do
     let(:query_string) {%|
       {
@@ -295,6 +314,25 @@ describe GraphQL::StaticValidation::FieldsWillMerge do
     end
   end
 
+#  describe "allows different args where no conflict is possible" do
+#    let(:query_string) {%|
+#      {
+#        pet {
+#          ... on Dog {
+#            name(surname: true)
+#          }
+#          ... on Cat {
+#            name
+#          }
+#        }
+#      }
+#    |}
+#
+#    it "passes rule" do
+#      assert_equal [], errors
+#    end
+#  end
+
   describe "encounters conflict in fragments" do
     let(:query_string) {%|
       {
@@ -319,6 +357,54 @@ describe GraphQL::StaticValidation::FieldsWillMerge do
       assert_equal [
         "Field 'x' has a field conflict: name or nickname?",
         "Field 'name' has a field conflict: nickname or name?",
+      ], error_messages
+    end
+  end
+
+  describe "reports each conflict once" do
+    let(:schema) { GraphQL::Schema.from_definition(%|
+      type Query {
+        f1: Type
+        f2: Type
+        f3: Type
+      }
+
+      type Type {
+        a: String
+        b: String
+        c: String
+      }
+    |) }
+
+    let(:query_string) {%|
+      {
+        f1 {
+          ...A
+          ...B
+        }
+        f2 {
+          ...B
+          ...A
+        }
+        f3 {
+          ...A
+          ...B
+          x: c
+        }
+      }
+      fragment A on Type {
+        x: a
+      }
+      fragment B on Type {
+        x: b
+      }
+    |}
+
+    it "fails rule" do
+      assert_equal [
+        "Field 'x' has a field conflict: a or b?",
+#        "Field 'x' has a field conflict: c or a?",
+#        "Field 'x' has a field conflict: c or b?",
       ], error_messages
     end
   end
@@ -388,6 +474,124 @@ describe GraphQL::StaticValidation::FieldsWillMerge do
     end
   end
 
+#  describe "deep conflict reporting" do
+#    let(:query_string) {%|
+#      {
+#        dog {
+#          toys {
+#            x: name
+#          }
+#          toys {
+#            x: size
+#          }
+#        }
+#        dog {
+#          toys {
+#            size
+#          }
+#        }
+#      }
+#    |}
+#
+#    it "reports error to nearest common ancestor" do
+#      assert_equal [
+#        "Field 'x' has a field conflict: name or size?",
+#      ], error_messages
+#    end
+#  end
+
+#  it('reports deep conflict to nearest common ancestor in fragments', () => {
+#    expectFailsRule(OverlappingFieldsCanBeMerged, `
+#      {
+#        field {
+#          ...F
+#        }
+#        field {
+#          ...F
+#        }
+#      }
+#      fragment F on T {
+#        deepField {
+#          deeperField {
+#            x: a
+#          }
+#          deeperField {
+#            x: b
+#          }
+#        },
+#        deepField {
+#          deeperField {
+#            y
+#          }
+#        }
+#      }
+#    `, [
+#      { message: fieldsConflictMessage(
+#          'deeperField', [ [ 'x', 'a and b are different fields' ] ]
+#        ),
+#        locations: [
+#          { line: 12, column: 11 },
+#          { line: 13, column: 13 },
+#          { line: 15, column: 11 },
+#          { line: 16, column: 13 } ],
+#        path: undefined },
+#    ]);
+#  });
+#
+#  it('reports deep conflict in nested fragments', () => {
+#    expectFailsRule(OverlappingFieldsCanBeMerged, `
+#      {
+#        field {
+#          ...F
+#        }
+#        field {
+#          ...I
+#        }
+#      }
+#      fragment F on T {
+#        x: a
+#        ...G
+#      }
+#      fragment G on T {
+#        y: c
+#      }
+#      fragment I on T {
+#        y: d
+#        ...J
+#      }
+#      fragment J on T {
+#        x: b
+#      }
+#    `, [
+#      { message: fieldsConflictMessage(
+#          'field', [ [ 'x', 'a and b are different fields' ],
+#                     [ 'y', 'c and d are different fields' ] ]
+#        ),
+#        locations: [
+#          { line: 3, column: 9 },
+#          { line: 11, column: 9 },
+#          { line: 15, column: 9 },
+#          { line: 6, column: 9 },
+#          { line: 22, column: 9 },
+#          { line: 18, column: 9 } ],
+#        path: undefined },
+#    ]);
+#  });
+#
+#  it('ignores unknown fragments', () => {
+#    expectPassesRule(OverlappingFieldsCanBeMerged, `
+#    {
+#      field
+#      ...Unknown
+#      ...Known
+#    }
+#    fragment Known on T {
+#      field
+#      ...OtherUnknown
+#    }
+#    `);
+#  });
+
   describe "return types must be unambiguous" do
     let(:schema) {
       GraphQL::Schema.from_definition(%|
@@ -450,6 +654,25 @@ describe GraphQL::StaticValidation::FieldsWillMerge do
       |)
     }
 
+#    describe "conflicting return types which potentially overlap" do
+#      let(:query_string) {%|
+#        {
+#          someBox {
+#            ...on IntBox {
+#              scalar
+#            }
+#            ...on NonNullStringBox1 {
+#              scalar
+#            }
+#          }
+#        }
+#      |}
+#
+#      it "fails rule" do
+#        # https://github.com/graphql/graphql-js/blob/36cd1622cad12ff63b01752e09e4a274b48a9d7b/src/validation/__tests__/OverlappingFieldsCanBeMerged-test.js#L578-L602
+#      end
+#    end
+
     describe "compatible return shapes on different return types" do
       let(:query_string) {%|
         {
@@ -472,6 +695,25 @@ describe GraphQL::StaticValidation::FieldsWillMerge do
         assert_equal [], errors
       end
     end
+
+#    describe "disallows differing return types despite no overlap" do
+#      let(:query_string) {%|
+#        {
+#          someBox {
+#            ... on IntBox {
+#              scalar
+#            }
+#            ... on StringBox {
+#              scalar
+#            }
+#          }
+#        }
+#      |}
+#
+#      it "fails rule" do
+#        # https://github.com/graphql/graphql-js/blob/36cd1622cad12ff63b01752e09e4a274b48a9d7b/src/validation/__tests__/OverlappingFieldsCanBeMerged-test.js#L626-L646
+#      end
+#    end
 
     describe "reports correctly when a non-exclusive follows an exclusive" do
       let(:query_string) {%|
@@ -523,5 +765,24 @@ describe GraphQL::StaticValidation::FieldsWillMerge do
         assert_includes error_messages, "Field 'scalar' has a field conflict: scalar or unrelatedField?"
       end
     end
+
+#    describe "differing return type nullability despite no overlap" do
+#      let(:query_string) {%|
+#        {
+#          someBox {
+#            ... on NonNullStringBox1 {
+#              scalar
+#            }
+#            ... on StringBox {
+#              scalar
+#            }
+#          }
+#        }
+#      |}
+#
+#      it "fails rule" do
+#        # https://github.com/graphql/graphql-js/blob/36cd1622cad12ff63b01752e09e4a274b48a9d7b/src/validation/__tests__/OverlappingFieldsCanBeMerged-test.js#L707-L727
+#      end
+#    end
   end
 end
