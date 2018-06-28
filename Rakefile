@@ -102,6 +102,23 @@ namespace :test do
   task js: "js:test"
 end
 
+namespace :graphql_cats do
+  task :sync do
+    require 'tmpdir'
+    Dir.mktmpdir do |dir|
+      p "Getting latest version of GraphQL Compatibility Acceptance Tests"
+      `git clone https://github.com/graphql-cats/graphql-cats.git #{dir}`
+
+      vendor_path = File.join(File.dirname(__FILE__), "spec", "graphql", "graphql_cats", "data")
+
+      p "Vendoring content into `#{vendor_path}`"
+      `cp -r #{dir}/scenarios #{vendor_path}`
+
+      p "Done!"
+    end
+  end
+end
+
 namespace :js do
   client_dir = "./javascript_client"
 
