@@ -10,7 +10,7 @@ module GraphQL
       end
 
       self.default_nodes_field = false
-      self.bidirectional_pagination = false
+      self.bidirectional_pagination = true
 
       # Create a connection which exposes edges of this type
       def self.create_type(wrapped_type, edge_type: nil, edge_class: GraphQL::Relay::Edge, nodes_field: ConnectionType.default_nodes_field, &block)
